@@ -1,11 +1,8 @@
 # frozen_string_literal: true
 
-Aws.config.update({
-  region: "us-east-1",
-  credentials: Aws::Credentials.new(
-    Rails.application.credentials&.dig(:aws, :access_key_id),
-    Rails.application.credentials&.dig(:aws, :secret_access_key),
-  ),
-})
+# AWS configuration disabled - using local storage instead
+# See config/initializers/local_storage.rb for the local file storage implementation
 
-S3_BUCKET = Aws::S3::Resource.new.bucket(Rails.application.credentials&.dig(:aws, :s3_bucket) || "")
+# Placeholder for any AWS credentials that might be needed for optional services
+# (Most AWS functionality has been replaced with local alternatives)
+Rails.logger.info("AWS services disabled - using local file storage")

@@ -129,7 +129,8 @@ class DataExport < ApplicationRecord
   end
 
   def run_task
-    ecs_client.run_task(ecs_trigger_task_parameters)
+    # Replace ECS with local background job processing
+    DataExportZipJob.perform_async(id)
   end
 
   def complete(zip_path)
@@ -141,8 +142,11 @@ class DataExport < ApplicationRecord
   end
 
   def zip_url
-    base = Rails.env.production? ? "https://d34kvjy7sxp73q.cloudfront.net" : "https://d3c2wobo23401l.cloudfront.net"
-    "#{base}/#{zip_path}"
+    # Use local file serving instead of CloudFront
+    Rails.application.routes.url_helpers.rails_blob_url(
+      zip_path,
+      host: Rails.application.config.action_mailer.default_url_options[:host]
+    )
   end
 
   def cleanup!
@@ -150,16 +154,7 @@ class DataExport < ApplicationRecord
     destroy!
   end
 
-  def ecs_client
-    @ecs_client ||= Aws::ECS::Client.new(
-      region: "us-east-1",
-      credentials: Aws::Credentials.new(
-        Rails.application.credentials&.dig(:aws_ecs, :access_key_id),
-        Rails.application.credentials&.dig(:aws_ecs, :secret_access_key),
-      ),
-    )
-  end
-
+  # Local upload/export configuration
   def upload_name
     case subject_type
     when "Organization"
@@ -169,40 +164,5 @@ class DataExport < ApplicationRecord
     else
       public_id
     end
-  end
-
-  def ecs_trigger_task_parameters
-    {
-      cluster: "data-exporter",
-      task_definition: "data-exporter-task-definition",
-      launch_type: "FARGATE",
-      network_configuration: {
-        awsvpc_configuration: {
-          subnets: [
-            "subnet-0ed5fb13e3991a037",
-            "subnet-0a9d14915d1c3bdca",
-            "subnet-05a23b57917c8e6b3",
-            "subnet-09046f9f795b2db39",
-            "subnet-00b393c3e0ba449b9",
-            "subnet-0f8134e2caa324f9b",
-          ],
-          security_groups: ["sg-0b31f01185b710e01"],
-          assign_public_ip: "ENABLED",
-        },
-      },
-      overrides: {
-        container_overrides: [
-          {
-            name: "data-exporter-container",
-            environment: [
-              { name: "EXPORT_ID", value: public_id },
-              { name: "BUCKET_NAME", value: Rails.application.credentials&.dig(:aws_ecs, :s3_bucket) },
-              { name: "CALLBACK_URL", value: data_export_callback_url(public_id, host: Campsite.base_app_url.to_s, subdomain: Campsite.api_subdomain) },
-              { name: "UPLOAD_NAME", value: upload_name },
-            ],
-          },
-        ],
-      },
-    }
   end
 end
