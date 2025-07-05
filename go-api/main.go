@@ -4,10 +4,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -38,11 +40,23 @@ var db *gorm.DB
 func initDB() {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		dsn = "user:password@tcp(localhost:3306)/campsite_go?charset=utf8mb4&parseTime=True&loc=Local"
+		// Default to SQLite for easy local development
+		dsn = "./campsite.db"
 	}
 
 	var err error
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	
+	// Choose driver based on DSN format
+	if strings.Contains(dsn, "mysql") || strings.Contains(dsn, "tcp(") {
+		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	} else {
+		// Use SQLite for local development
+		if strings.HasPrefix(dsn, "sqlite://") {
+			dsn = strings.TrimPrefix(dsn, "sqlite://")
+		}
+		db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	}
+	
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
@@ -96,21 +110,24 @@ func main() {
 		// Organizations
 		v1.GET("/organizations", getOrganizations)
 		v1.POST("/organizations", createOrganization)
-		v1.GET("/organizations/:slug", getOrganization)
+		v1.GET("/organizations/by-slug/:slug", getOrganization)
 
 		// Projects
 		v1.GET("/organizations/:org_slug/projects", getProjects)
 		v1.POST("/organizations/:org_slug/projects", createProject)
-		v1.GET("/organizations/:org_slug/projects/:slug", getProject)
-
+		v1.GET("/organizations/:org_slug/projects/by-slug/:slug", getProject)
+		
 		// Posts
 		v1.GET("/organizations/:org_slug/projects/:project_slug/posts", getPosts)
 		v1.POST("/organizations/:org_slug/projects/:project_slug/posts", createPost)
-		v1.GET("/organizations/:org_slug/projects/:project_slug/posts/:id", getPost)
+		v1.GET("/posts/:id", getPost)
 
 		// File uploads (replacing S3)
 		v1.POST("/uploads", uploadFile)
 		v1.GET("/uploads/:key", serveFile)
+		
+		// Integration stubs for external services
+		setupIntegrationRoutes(v1)
 	}
 
 	port := os.Getenv("PORT")
