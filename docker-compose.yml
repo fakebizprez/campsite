@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # MySQL database for both Ruby and Go APIs
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: campsite_development
+      MYSQL_USER: campsite
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - campsite
+
+  # Go API server
+  go-api:
+    build: 
+      context: ./go-api
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=campsite:password@tcp(mysql:3306)/campsite_go?charset=utf8mb4&parseTime=True&loc=Local
+      - PORT=8080
+    depends_on:
+      - mysql
+    volumes:
+      - ./go-api/uploads:/root/uploads
+    networks:
+      - campsite
+
+  # Ruby API server (optional - if you want to run both)
+  ruby-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=mysql2://campsite:password@mysql:3306/campsite_development
+      - RAILS_ENV=development
+    depends_on:
+      - mysql
+    volumes:
+      - ./api/storage:/app/storage
+    networks:
+      - campsite
+    # Uncomment if you want to run the Ruby API alongside Go API
+    # profiles:
+    #   - ruby
+
+  # Redis for background jobs (if using Ruby API)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - campsite
+    # profiles:
+    #   - ruby
+
+  # Nginx reverse proxy (optional - for production-like setup)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - go-api
+    networks:
+      - campsite
+    profiles:
+      - nginx
+
+volumes:
+  mysql_data:
+
+networks:
+  campsite:
+    driver: bridge

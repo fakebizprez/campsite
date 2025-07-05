@@ -93,6 +93,9 @@ Rails.application.routes.draw do
     resources :public_projects, only: [:show], param: :token
 
     resources :image_urls, only: :create
+    
+    # Local file upload endpoints (replaces S3 presigned posts)
+    resources :uploads, only: [:create, :show], param: :key
 
     resources :organization_memberships, only: [:index] do
       collection do

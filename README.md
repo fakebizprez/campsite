@@ -1,55 +1,92 @@
 # Campsite
 
-This is an open source version of the [Campsite](https://www.campsite.com/) app. This codebase is available **as-is** and is not actively maintained by the Campsite team. We will only consider pull requests and issues regarding self-hosting or critical fixes. The codebase is provided as a reference for those interested in learning how Campsite works. We welcome forks of this repository for use in non-commercial projects.
+This is an open source version of the [Campsite](https://www.campsite.com/) app. This codebase is available **as-is** and has been refactored to remove AWS dependencies and provide a Go-based backend alternative.
+
+## 🔄 Major Changes
+
+This fork includes significant architectural changes:
+
+- **✅ AWS Dependencies Removed**: S3, ECS, and Transcribe services replaced with local alternatives
+- **✅ Go Backend Available**: New Go API with local file storage and WebSocket support  
+- **✅ Local Storage**: Files stored locally instead of AWS S3
+- **✅ Background Jobs**: Local processing instead of AWS ECS
+- **✅ WebSocket Support**: Native implementation instead of Pusher
+
+See [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) for detailed migration instructions.
+
+## 🚀 Quick Start Options
+
+### Option 1: Ruby API with Local Storage (Modified Original)
+
+The Ruby API has been updated to work without AWS:
+
+```bash
+cd api
+bundle install
+script/server
+```
+
+### Option 2: Go API (New Implementation)
+
+A new Go-based API with core functionality:
+
+```bash
+cd go-api
+make setup
+make run
+```
+
+The Go API provides:
+- Organizations, Projects, Posts management
+- Local file upload/download
+- WebSocket real-time messaging  
+- MySQL database support
 
 ## Local dev setup
 
-To get started, run this command from the workspace root:
+To get started with the **Ruby API** (modified to work without AWS), run this command from the workspace root:
 
 ```bash
 script/setup
 ```
 
-Campsite requires setting up several services before you can run the basic version locally.
+For the **Go API**, see the [Go API README](go-api/README.md).
 
-### S3 (critical)
+## Service Dependencies
 
-S3 is needed to upload avatars and attachments. We recommend separate buckets for dev and production. For example, we use `campsite-media` and `campsite-media-dev` buckets.
+The application has been modified to work with **local alternatives** to cloud services:
 
-You should setup a IAM user with [these suggested policies](aws-policies.md) (make sure to use your buckets in the policy).
+### File Storage (Required)
 
-Set your credentials for the API:
+Instead of S3, files are now stored locally:
 
-```bash
-cd api
-script/credentials development
-```
+**Ruby API**: Files stored in `api/storage/uploads/`
+**Go API**: Files stored in `go-api/uploads/`
 
-Configure these under the `aws` key.
+No additional configuration needed - directories are created automatically.
 
-We also recommend uploading the contents of the `default_avatars` directory under `static/avatars` in each S3 bucket. [Read more here](default_avatars/readme.md).
+### Real-time Updates
 
-### Pusher (critical)
+**Ruby API**: Still requires Pusher configuration (see original instructions below)
+**Go API**: Uses built-in WebSocket server (no external dependencies)
 
-[Pusher](https://pusher.com/) is used to send realtime updates and events. After creating your account, configure this under the `pusher` key in your credentials.
+### Database
 
-### Imgix (critical)
+Both APIs use MySQL/MariaDB. Follow the original setup instructions for database configuration.
 
-[Imgix](https://www.imgix.com/) is the CDN powering Campsite. On AWS IAM, you will need to create an imgix user + policy ([see recommended policy](aws-policies.md)).
+### Optional: Pusher (Ruby API only)
 
-Then, add S3 as an [Imgix source](https://docs.imgix.com/en-US/getting-started/setup/creating-sources/amazon-s3). If you setup dev and prod S3 buckets, you will need a separate Imgix source for each.
+**Ruby API**: [Pusher](https://pusher.com/) is used to send realtime updates and events. After creating your account, configure this under the `pusher` key in your credentials.
 
-Lastly, create an API Key for Imgix in your account dropdown.
+**Go API**: Uses built-in WebSocket server (no external dependencies).
 
-Fill in all of these values in the credentials files:
+### Optional: Imgix (Ruby API only)
 
-- `imgix.url` - The S3 sourced image domain. Should look like https://campsite-dev.imgix.net
-- `imgix.source_id` - The Imgix source ID (top of the source page or in the URL)
-- `imgix.api_key` - The API key you created
-- `imgix_video.url` - Same URL as `imgix.url` but with `.video` as the TLD (e.g. https://campsite-dev.imgix.video)
+**Ruby API**: [Imgix](https://www.imgix.com/) was the CDN powering Campsite. This is now optional - files can be served directly from local storage.
 
-> [!NOTE]
-> While here you can also setup [Imgix Web Folders](https://docs.imgix.com/en-US/getting-started/setup/creating-sources/web-folder) and put the URL in `imgix_folder.url`. This is used to cache doc thumbnails, but isn't necessary on local dev. The web folder is needed to host doc thumbnails in prod.
+**Go API**: Serves files directly from local storage.
+
+If you want to use Imgix with the Ruby API, you can still set it up following the original instructions.
 
 ### 100ms
 

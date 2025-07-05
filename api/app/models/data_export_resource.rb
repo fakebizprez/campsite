@@ -108,7 +108,7 @@ class DataExportResource < ApplicationRecord
     source_object = S3_BUCKET.object(source_path)
     target_object = S3_BUCKET.object("exports/#{data_export.public_id}/#{target_path}")
     source_object.copy_to(target_object)
-  rescue Aws::S3::Errors::NoSuchKey
+  rescue LocalStorageErrors::NoSuchKey
     Sentry.capture_message("Failed to copy attachment: #{source_path} -> #{target_path}")
     update!(status: :error)
   end
